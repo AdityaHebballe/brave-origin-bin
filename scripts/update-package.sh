@@ -39,22 +39,29 @@ fi
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-amd64_url="https://github.com/${repo}/releases/download/v${latest_ver}/${pkgbase}_${latest_ver}_amd64.deb"
-arm64_url="https://github.com/${repo}/releases/download/v${latest_ver}/${pkgbase}_${latest_ver}_arm64.deb"
+amd64_url="https://github.com/${repo}/releases/download/v${latest_ver}/${pkgbase}_${latest_ver}_amd64.deb.sha256"
+arm64_url="https://github.com/${repo}/releases/download/v${latest_ver}/${pkgbase}_${latest_ver}_arm64.deb.sha256"
 
-curl -fL "${amd64_url}" -o "${tmpdir}/${pkgbase}_${latest_ver}_amd64.deb"
-curl -fL "${arm64_url}" -o "${tmpdir}/${pkgbase}_${latest_ver}_arm64.deb"
+curl -fL "${amd64_url}" -o "${tmpdir}/${pkgbase}_${latest_ver}_amd64.deb.sha256"
+curl -fL "${arm64_url}" -o "${tmpdir}/${pkgbase}_${latest_ver}_arm64.deb.sha256"
 
-script_sum="$(sha512sum "${pkgname}.sh" | awk '{print $1}')"
-amd64_sum="$(sha512sum "${tmpdir}/${pkgbase}_${latest_ver}_amd64.deb" | awk '{print $1}')"
-arm64_sum="$(sha512sum "${tmpdir}/${pkgbase}_${latest_ver}_arm64.deb" | awk '{print $1}')"
+script_sum="$(sha256sum "${pkgname}.sh" | awk '{print $1}')"
+amd64_sum="$(awk '{print $1}' "${tmpdir}/${pkgbase}_${latest_ver}_amd64.deb.sha256")"
+arm64_sum="$(awk '{print $1}' "${tmpdir}/${pkgbase}_${latest_ver}_arm64.deb.sha256")"
+
+for sum in "${script_sum}" "${amd64_sum}" "${arm64_sum}"; do
+  if [[ ! "${sum}" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Invalid SHA256 checksum: ${sum}" >&2
+    exit 1
+  fi
+done
 
 sed -i \
   -e "s/^pkgver=.*/pkgver=${latest_ver}/" \
   -e "s/^pkgrel=.*/pkgrel=1/" \
-  -e "s/^sha512sums=.*/sha512sums=('${script_sum}')/" \
-  -e "s/^sha512sums_x86_64=.*/sha512sums_x86_64=('${amd64_sum}')/" \
-  -e "s/^sha512sums_aarch64=.*/sha512sums_aarch64=('${arm64_sum}')/" \
+  -e "s/^sha256sums=.*/sha256sums=('${script_sum}')/" \
+  -e "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${amd64_sum}')/" \
+  -e "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${arm64_sum}')/" \
   PKGBUILD
 
 makepkg --printsrcinfo > .SRCINFO
