@@ -7,8 +7,13 @@ pkgbase="${pkgname%-bin}"
 
 current_ver="$(sed -n 's/^pkgver=//p' PKGBUILD)"
 
+curl_headers=(-H "Accept: application/vnd.github+json")
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  curl_headers+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
+
 latest_ver="$(
-  curl -fsSL "https://api.github.com/repos/${repo}/releases?per_page=50" |
+  curl -fsSL "${curl_headers[@]}" "https://api.github.com/repos/${repo}/releases?per_page=50" |
     jq -r '
       .[]
       | select(.draft == false)
